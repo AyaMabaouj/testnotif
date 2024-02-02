@@ -90,6 +90,12 @@ class _MyHomePageState extends State<MyHomePage> {
         });
       }
     });
+
+    gyroscopeEvents.listen((GyroscopeEvent event) {
+      // Handle gyroscope data here if needed
+      // You can access event.x, event.y, and event.z
+      // These values represent the rotation rate around the x, y, and z axes, respectively
+    });
   }
 
   // Affiche la notification de vitesse excessive

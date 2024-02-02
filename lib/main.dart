@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:math';
-
+import 'package:permission_handler/permission_handler.dart';
 import 'package:sensorsapp/notification.dart';
-
-
 
 void main() {
   runApp(MyApp());
@@ -39,10 +37,27 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   void initState() {
     super.initState();
-    // Commence à écouter les mises à jour de la vitesse du GPS
-    _getLocationSpeed();
-    // Commence à écouter les mises à jour des capteurs
-    _listenToSensors();
+    // Demander les autorisations nécessaires au démarrage de l'application
+    _requestPermissions();
+  }
+
+  // Demande les autorisations nécessaires
+  void _requestPermissions() async {
+    // Demande l'autorisation de la localisation
+    var locationStatus = await Permission.location.request();
+    // Demande l'autorisation d'accéder au son
+    var soundStatus = await Permission.microphone.request();
+
+    // Vérifie si les autorisations ont été accordées
+    if (locationStatus.isGranted && soundStatus.isGranted) {
+      // Commence à écouter les mises à jour de la vitesse du GPS
+      _getLocationSpeed();
+      // Commence à écouter les mises à jour des capteurs
+      _listenToSensors();
+    } else {
+      // Gérer le cas où l'une ou les deux autorisations n'ont pas été accordées
+      // Vous pouvez afficher un message à l'utilisateur ou prendre une autre action appropriée
+    }
   }
 
   // Obtient la vitesse actuelle à partir du GPS
@@ -55,37 +70,37 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   // Écoute les mises à jour des capteurs
-void _listenToSensors() {
-  accelerometerEvents.listen((AccelerometerEvent event) {
-    // Calcul de l'accélération totale (magnitude) à partir des données de l'accéléromètre
-    double accelerationMagnitude =
-        (event.x * event.x) + (event.y * event.y) + (event.z * event.z);
-    accelerationMagnitude = sqrt(accelerationMagnitude);
+  void _listenToSensors() {
+    accelerometerEvents.listen((AccelerometerEvent event) {
+      // Calcul de l'accélération totale (magnitude) à partir des données de l'accéléromètre
+      double accelerationMagnitude =
+          (event.x * event.x) + (event.y * event.y) + (event.z * event.z);
+      accelerationMagnitude = sqrt(accelerationMagnitude);
 
-    // Logique de détection de ralentisseurs
-    if (accelerationMagnitude > seuil) {
-      setState(() {
-        _isSpeeding = true;
-      });
-      // Si la vitesse dépasse le seuil, affiche la notification
-      _showSpeedingNotification();
-    } else {
-      setState(() {
-        _isSpeeding = false;
-      });
-    }
-  });
-}
+      // Logique de détection de ralentisseurs
+      if (accelerationMagnitude > seuil) {
+        setState(() {
+          _isSpeeding = true;
+        });
+        // Si la vitesse dépasse le seuil, affiche la notification
+        _showSpeedingNotification();
+      } else {
+        setState(() {
+          _isSpeeding = false;
+        });
+      }
+    });
+  }
 
-// Affiche la notification de vitesse excessive
-void _showSpeedingNotification() async {
-  await NotificationManager.init(); // Initialisation du gestionnaire de notifications
-  await NotificationManager.showNotification(
-    id: 0,
-    title: 'Speeding Alert',
-    body: 'You are speeding!',
-  );
-}
+  // Affiche la notification de vitesse excessive
+  void _showSpeedingNotification() async {
+    await NotificationManager.init(); // Initialisation du gestionnaire de notifications
+    await NotificationManager.showNotification(
+      id: 0,
+      title: 'Speeding Alert',
+      body: 'You are speeding!',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

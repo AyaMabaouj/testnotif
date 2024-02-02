@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationManager {
@@ -5,9 +6,11 @@ class NotificationManager {
       FlutterLocalNotificationsPlugin();
 
   static Future<void> init({bool scheduled = false}) async {
-    var initAndroidSettings = AndroidInitializationSettings('mipmap/ic_launcher');
-    var settings = InitializationSettings(android: initAndroidSettings);
-    await _notif.initialize(settings);
+    var initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    var initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    await _notif.initialize(initializationSettings);
   }
 
   static Future<void> showNotification({
@@ -26,14 +29,20 @@ class NotificationManager {
   }
 
   static Future<NotificationDetails> notificationDetails() async {
-    var androidDetails = AndroidNotificationDetails(
-      'channel id',
-      'channel name',
+    var androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'channel_id',
+      'channel_name',
       importance: Importance.max,
-      playSound: false,
+      priority: Priority.high,
       sound: RawResourceAndroidNotificationSound('alert'),
+      playSound: true,
+      enableVibration: true,
+      vibrationPattern: Int64List.fromList([0, 1000, 500, 1000]), // Modify this pattern according to your needs
     );
-   
-    return NotificationDetails(android: androidDetails,);
+
+    var platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+
+    return platformChannelSpecifics;
   }
 }

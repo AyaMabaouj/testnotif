@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:sensors_plus/sensors_plus.dart';
 import 'dart:math';
@@ -13,7 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Speedometer',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
@@ -30,77 +31,61 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   String _speed = '0';
   bool _isSpeeding = false;
-
-  // Définition du seuil pour la détection de ralentisseurs
-  double seuil = 10.0; // Valeur de seuil à ajuster en fonction de vos besoins
+  double _accelerationThreshold = 10.0;
 
   @override
   void initState() {
     super.initState();
-    // Demander les autorisations nécessaires au démarrage de l'application
     _requestPermissions();
   }
 
-  // Demande les autorisations nécessaires
-  void _requestPermissions() async {
-    // Demande l'autorisation de la localisation
+  Future<void> _requestPermissions() async {
     var locationStatus = await Permission.location.request();
-    // Demande l'autorisation d'accéder au son
     var soundStatus = await Permission.microphone.request();
 
-    // Vérifie si les autorisations ont été accordées
     if (locationStatus.isGranted && soundStatus.isGranted) {
-      // Commence à écouter les mises à jour de la vitesse du GPS
-      _getLocationSpeed();
-      // Commence à écouter les mises à jour des capteurs
-      _listenToSensors();
+      _startListening();
     } else {
-      // Gérer le cas où l'une ou les deux autorisations n'ont pas été accordées
-      // Vous pouvez afficher un message à l'utilisateur ou prendre une autre action appropriée
+      // Handle permission denied scenarios
     }
   }
 
-  // Obtient la vitesse actuelle à partir du GPS
-  Future<void> _getLocationSpeed() async {
-    Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-    setState(() {
-      _speed = position.speed.toString();
-    });
-  }
-
-  // Écoute les mises à jour des capteurs
-  void _listenToSensors() {
+  Future<void> _startListening() async {
     accelerometerEvents.listen((AccelerometerEvent event) {
-      // Calcul de l'accélération totale (magnitude) à partir des données de l'accéléromètre
       double accelerationMagnitude =
-          (event.x * event.x) + (event.y * event.y) + (event.z * event.z);
-      accelerationMagnitude = sqrt(accelerationMagnitude);
+          sqrt(event.x * event.x + event.y * event.y + event.z * event.z);
 
-      // Logique de détection de ralentisseurs
-      if (accelerationMagnitude > seuil) {
-        setState(() {
-          _isSpeeding = true;
-        });
-        // Si la vitesse dépasse le seuil, affiche la notification
-        _showSpeedingNotification();
-      } else {
-        setState(() {
-          _isSpeeding = false;
-        });
+      if (accelerationMagnitude > _accelerationThreshold) {
+        _handleSpeedingDetected();
       }
     });
 
-    gyroscopeEvents.listen((GyroscopeEvent event) {
-      // Handle gyroscope data here if needed
-      // You can access event.x, event.y, and event.z
-      // These values represent the rotation rate around the x, y, and z axes, respectively
-    });
+    // Initiate GPS speed tracking
+    _getLocationSpeed();
   }
 
-  // Affiche la notification de vitesse excessive
-  void _showSpeedingNotification() async {
-    await NotificationManager.init(); // Initialisation du gestionnaire de notifications
+  Future<void> _getLocationSpeed() async {
+    Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.best,
+    );
+
+    setState(() {
+      _speed = position.speed.toStringAsFixed(2);
+    });
+
+    // Check for speeding after updating speed
+    if (double.parse(_speed) > 10) {
+      _handleSpeedingDetected();
+    }
+  }
+
+  void _handleSpeedingDetected() async {
+    setState(() {
+      _isSpeeding = true;
+    });
+
+    // Show notification for speeding alert
+    await NotificationManager.init();
     await NotificationManager.showNotification(
       id: 0,
       title: 'Speeding Alert',
@@ -118,13 +103,7 @@ class _MyHomePageState extends State<MyHomePage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            Text(
-              'Current Speed:',
-            ),
-            Text(
-              '$_speed m/s',
-              style: Theme.of(context).textTheme.headline4,
-            ),
+            Speedometer(speed: double.parse(_speed)),
             _isSpeeding
                 ? Text(
                     'Alert: You are speeding!',
@@ -133,6 +112,62 @@ class _MyHomePageState extends State<MyHomePage> {
                 : SizedBox(),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class Speedometer extends StatelessWidget {
+  final double speed;
+
+  Speedometer({required this.speed});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 200,
+      height: 200,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black, width: 2),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Speedometer background
+          Container(
+            width: 180,
+            height: 180,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [Colors.grey.shade300, Colors.white],
+                stops: [0.3, 1.0],
+              ),
+            ),
+          ),
+          // Speedometer indicator
+          Transform.rotate(
+            angle: pi * (speed / 180),
+            child: Container(
+              width: 3,
+              height: 90,
+              color: Colors.red,
+            ),
+          ),
+          // Speed text
+          Positioned(
+            top: 160,
+            child: Text(
+              '$speed km/h',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                fontFamily: 'CarSpeedFont', // Utilisation de la police personnalisée
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
